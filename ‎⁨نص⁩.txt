@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منصة ثانوية مستقبل نجران التعليمية المتكاملة</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Cairo', sans-serif; }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- حاوية التطبيق الرئيسي -->
+    <div id="app" class="flex-1 flex flex-col"></div>
+
+    <!-- نافذة منبثقة تفاعلية عامة -->
+    <div id="modal-container" class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div id="modal-content" class="bg-white rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden transition-all transform scale-95 opacity-0 duration-200">
+        </div>
+    </div>
+
+    <!-- تذييل للإشعارات السريعة -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2"></div>
+
+    <script>
+        // --- System State & Mock Data ---
+        let currentUser = {
+            id: 'USR-ADM-01',
+            name: 'د. خالد بن ناصر القحطاني',
+            role: 'admin', 
+            title: 'مدير المدرسة',
+            signature: 'د. خالد القحطاني'
+        };
+
+        let currentTab = 'dashboard';
+        let schoolLogoUrl = ''; // Custom uploaded logo or default icon
+        let toolbarDisplayMode = 'both'; // 'both', 'icon-only'
+
+        let students = [
+            { id: 'S101', name: 'سلطان فهد الشمري', grade: 'الصف الأول الثانوي', class: '1/أ', status: 'منتظم', phone: '0551234567', bookDelivered: true, notesCount: 1, attendance: 'حاضر' },
+            { id: 'S102', name: 'تركي محمد اليامي', grade: 'الصف الأول الثانوي', class: '1/أ', status: 'منتظم', phone: '0552345678', bookDelivered: true, notesCount: 0, attendance: 'حاضر' },
+            { id: 'S103', name: 'عمر صالح الدوسري', grade: 'الصف الثاني الثانوي', class: '2/أ', status: 'منتظم', phone: '0553456789', bookDelivered: false, notesCount: 2, attendance: 'غائب' },
+            { id: 'S104', name: 'فيصل ناصر القحطاني', grade: 'الصف الثالث الثانوي', class: '3/أ', status: 'منتظم', phone: '0554567890', bookDelivered: true, notesCount: 0, attendance: 'متأخر' },
+            { id: 'S105', name: 'عبدالله سعيد الشهراني', grade: 'الصف الثالث الثانوي', class: '3/ب', status: 'منتظم', phone: '0555678901', bookDelivered: true, notesCount: 1, attendance: 'حاضر' }
+        ];
+
+        let staff = [
+            { id: 'ST-01', name: 'صالح آل حيدر', role: 'vice', title: 'وكيل المدرسة', phone: '0501112233', assignment: 'إشراف الجداول واللجان', status: 'نشط' },
+            { id: 'ST-02', name: 'محمد الصيعري', role: 'counselor', title: 'الموجه الطلابي', phone: '0502223344', assignment: 'الإرشاد والتوجيه السلوكي', status: 'نشط' },
+            { id: 'ST-03', name: 'بندر اليامي', role: 'activity', title: 'رائد النشاط', phone: '0505556677', assignment: 'البرامج اللاصفية والرحلات', status: 'نشط' },
+            { id: 'ST-04', name: 'عادل الوادعي', role: 'teacher', title: 'معلم الرياضيات', phone: '0503334455', assignment: 'تدريس الصفوف الأولية', status: 'نشط' },
+            { id: 'ST-05', name: 'سعيد المكرمي', role: 'teacher', title: 'معلم الفيزياء', phone: '0504445566', assignment: 'مختبر العلوم والفيزياء', status: 'نشط' }
+        ];
+
+        let activities = [
+            { id: 'ACT-1', name: 'دوري كرة القدم المدرسية', date: '2026-06-10', supervisor: 'بندر اليامي', status: 'جارية التنفيذ', attendees: 45 },
+            { id: 'ACT-2', name: 'معرض الابتكارات العلمية التقنية', date: '2026-06-18', supervisor: 'بندر اليامي', status: 'مخطط لها', attendees: 80 },
+            { id: 'ACT-3', name: 'رحلة حقلية لمركز الأمير سلطان لمعارض العلوم', date: '2026-06-25', supervisor: 'بندر اليامي', status: 'معتمدة', attendees: 30 }
+        ];
+
+        let committees = [
+            { name: 'لجان سير الامتحانات النهائية الفصلية', head: 'صالح آل حيدر', members: 'عادل الوادعي، سعيد المكرمي', date: '2026-06-20' },
+            { name: 'لجنة استقبال مستجدين الصف الأول الثانوي', head: 'محمد الصيعري', members: 'بندر اليامي', date: '2026-06-05' }
+        ];
+
+        let counselingSessions = [
+            { id: 'CS-1', studentName: 'عمر صالح الدوسري', date: '2026-06-01', type: 'تأخر مفرط وغياب متكرر', notes: 'تمت المناقشة حول أهمية الالتزام بالمواعيد وأخذ تعهد خطي موثق.', counselor: 'محمد الصيعري', status: 'مغلقة' },
+            { id: 'CS-2', studentName: 'سلطان فهد الشمري', date: '2026-06-05', type: 'دعم تفوق دراسي', notes: 'جلسة توجيهية لتعزيز القدرات وتطوير المهارات الرياضية.', counselor: 'محمد الصيعري', status: 'جارية' }
+        ];
+
+        let auditLogs = [
+            { id: 1, time: '08:30 ص', user: 'د. خالد القحطاني', action: 'تسجيل دخول للنظام وسحب النسخة الاحتياطية', ip: '192.168.1.10' },
+            { id: 2, time: '09:15 ص', user: 'صالح آل حيدر', action: 'اعتماد جداول لجان الامتحانات', ip: '192.168.1.15' },
+            { id: 3, time: '10:00 ص', user: 'بندر اليامي', action: 'إضافة فعالية نشاط جديدة للخطط', ip: '192.168.1.20' }
+        ];
+
+        // --- Core Rendering Engine ---
+        function render() {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <!-- شريط التنقل العلوي الهوية البصرية -->
+                <header class="bg-gradient-to-r from-sky-900 via-sky-800 to-blue-950 text-white shadow-xl sticky top-0 z-40 no-print">
+                    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+                        <div class="flex items-center gap-3">
+                            <div id="brand-logo-container" class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20 shadow-inner overflow-hidden">
+                                ${schoolLogoUrl ? `<img src="${schoolLogoUrl}" class="w-full h-full object-contain">` : '<i class="fa-solid fa-graduation-cap text-2xl text-sky-200"></i>'}
+                            </div>
+                            <div>
+                                <h1 class="font-black text-lg leading-tight">ثانوية مستقبل نجران التعليمية</h1>
+                                <p class="text-xs text-sky-300 font-medium">منصة الإدارة التعليمية والخدمات السحابية المتقدمة</p>
+                            </div>
+                        </div>
+                        
+                        <!-- أزرار الإجراءات العلوية، الإشعارات، وقائمة المدير المنسدلة -->
+                        <div class="flex items-center gap-3">
+                            <!-- شارات الإشعارات -->
+                            <div class="relative">
+                                <button onclick="toggleNotifications()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center relative transition border border-white/10">
+                                    <i class="fa-regular fa-bell"></i>
+                                    <span class="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-sky-900">3</span>
+                                </button>
+                            </div>
+
+                            <!-- قائمة مدير المدرسة المنسدلة الرئيسية (Admin Dropdown) -->
+                            ${currentUser.role === 'admin' ? `
+                                <div class="relative">
+                                    <button onclick="toggleAdminMenu()" class="bg-sky-700 hover:bg-sky-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow border border-sky-600">
+                                        <i class="fa-solid fa-bars-staggered"></i>
+                                        <span>لوحة تحكم المدير</span>
+                                        <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                                    </button>
+                                    <div id="admin-dropdown-menu" class="absolute left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-100 hidden z-50 overflow-hidden py-2 text-slate-800 text-right">
+                                        <div class="px-4 py-2 border-b border-slate-100">
+                                            <p class="text-xs font-bold text-slate-900">قائمة صلاحيات الإدارة العليا</p>
+                                            <p class="text-[10px] text-slate-400">تحكم كامل (CRUD) واعتمادات رسمية</p>
+                                        </div>
+                                        <div class="max-h-72 overflow-y-auto text-xs">
+                                            <a href="#" onclick="openLogoManagerModal(); return false;" class="block px-4 py-2.5 hover:bg-slate-50 font-semibold flex items-center justify-between text-slate-700">
+                                                <span>رفع واستبدال الشعار (SVG/PNG)</span>
+                                                <i class="fa-solid fa-image text-sky-600"></i>
+                                            </a>
+                                            <a href="#" onclick="setTab('staff'); toggleAdminMenu(); return false;" class="block px-4 py-2.5 hover:bg-slate-50 font-semibold flex items-center justify-between text-slate-700">
+                                                <span>إدارة المستخدمين والأدوار والتعيينات</span>
+                                                <i class="fa-solid fa-users-gear text-sky-600"></i>
+                                            </a>
+                                            <a href="#" onclick="setTab('students'); toggleAdminMenu(); return false;" class="block px-4 py-2.5 hover:bg-slate-50 font-semibold flex items-center justify-between text-slate-700">
+                                                <span>إدارة الطلاب (استيراد/تصدير/طباعة)</span>
+                                                <i class="fa-solid fa-user-graduate text-sky-600"></i>
+                                            </a>
+                                            <a href="#" onclick="openAuditLogsModal(); return false;" class="block px-4 py-2.5 hover:bg-slate-50 font-semibold flex items-center justify-between text-slate-700">
+                                                <span>عرض سجلات التدقيق والنشاط</span>
+                                                <i class="fa-solid fa-shield-halved text-sky-600"></i>
+                                            </a>
+                                            <a href="#" onclick="openResetPasswordModal(); return false;" class="block px-4 py-2.5 hover:bg-slate-50 font-semibold flex items-center justify-between text-slate-700">
+                                                <span>إعادة تعيين كلمات مرور المستخدمين</span>
+                                                <i class="fa-solid fa-key text-amber-600"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            <!-- معلومات المستخدم الحالي -->
+                            <div class="bg-sky-950/70 px-4 py-1.5 rounded-full border border-sky-700/50 flex items-center gap-2 text-sm shadow-inner">
+                                <i class="fa-solid fa-user-shield text-sky-400"></i>
+                                <span class="font-bold">${currentUser.name}</span>
+                                <span class="bg-sky-500/20 text-sky-200 text-xs px-2.5 py-0.5 rounded-full">${currentUser.title}</span>
+                            </div>
+                            <button onclick="switchRoleModal()" class="bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold transition shadow flex items-center gap-1">
+                                <i class="fa-solid fa-rotate"></i> تبديل الدور
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- شريط الأقسام التفاعلي وشريط الأدوات القابل للتخصيص -->
+                    <nav class="bg-sky-950/95 border-t border-sky-800/50 px-4">
+                        <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center py-2 gap-2">
+                            <div class="flex overflow-x-auto gap-1 text-sm scrollbar-none">
+                                <button onclick="setTab('dashboard')" class="px-3.5 py-2 rounded-xl transition font-medium flex items-center gap-2 whitespace-nowrap ${currentTab === 'dashboard' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:bg-sky-900/60'}">
+                                    <i class="fa-solid fa-chart-pie"></i> ${toolbarDisplayMode === 'both' ? 'لوحة المؤشرات' : ''}
+                                </button>
+                                <button onclick="setTab('students')" class="px-3.5 py-2 rounded-xl transition font-medium flex items-center gap-2 whitespace-nowrap ${currentTab === 'students' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:bg-sky-900/60'}">
+                                    <i class="fa-solid fa-users"></i> ${toolbarDisplayMode === 'both' ? 'قاعدة الطلاب' : ''}
+                                </button>
+                                <button onclick="setTab('attendance')" class="px-3.5 py-2 rounded-xl transition font-medium flex items-center gap-2 whitespace-nowrap ${currentTab === 'attendance' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:bg-sky-900/60'}">
+                                    <i class="fa-solid fa-clipboard-user"></i> ${toolbarDisplayMode === 'both' ? 'الحضور والغياب' : ''}
+                                </button>
+                                <button onclick="setTab('counseling')" class="px-3.5 py-2 rounded-xl transition font-medium flex items-center gap-2 whitespace-nowrap ${currentTab === 'counseling' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:bg-sky-900/60'}">
+                                    <i class="fa-solid fa-comments"></i> ${toolbarDisplayMode === 'both' ? 'الإرشاد الطلابي' : ''}
+                                </button>
+                                <button onclick="setTab('activity')" class="px-3.5 py-2 rounded-xl transition font-medium flex items-center gap-2 whitespace-nowrap ${currentTab === 'activity' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:bg-sky-900/60'}">
+                                    <i class="fa-solid fa-puzzle-piece"></i> ${toolbarDisplayMode === 'both' ? 'رائد النشاط والبرامج' : ''}
+                                </button>
+                                <button onclick="setTab('staff')" class="px-3.5 py-2 rounded-xl transition font-medium flex items-center gap-2 whitespace-nowrap ${currentTab === 'staff' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:bg-sky-900/60'}">
+                                    <i class="fa-solid fa-user-gear"></i> ${toolbarDisplayMode === 'both' ? 'الكادر والصلاحيات' : ''}
+                                </button>
+                                <button onclick="setTab('reports')" class="px-3.5 py-2 rounded-xl transition font-medium flex items-center gap-2 whitespace-nowrap ${currentTab === 'reports' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:bg-sky-900/60'}">
+                                    <i class="fa-solid fa-file-lines"></i> ${toolbarDisplayMode === 'both' ? 'التقارير والاعتمادات' : ''}
+                                </button>
+                            </div>
+
+                            <!-- زر تبديل وضع عرض شريط الأدوات (رمزي أم نصي ورمزي) -->
+                            <div class="flex items-center gap-2 text-xs text-sky-300">
+                                <span>شريط الأدوات:</span>
+                                <button onclick="toggleToolbarMode()" class="bg-sky-900 hover:bg-sky-800 text-white px-2.5 py-1.5 rounded-lg border border-sky-700 transition" title="تبديل العرض">
+                                    <i class="fa-solid fa-sliders mr-1"></i> ${toolbarDisplayMode === 'both' ? 'وضع الرموز فقط' : 'وضع النص والرموز'}
+                                </button>
+                            </div>
+                        </div>
+                    </nav>
+                </header>
+
+                <!-- المحتوى الديناميكي -->
+                <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
+                    ${renderTabContent()}
+                </main>
+
+                <!-- تذييل الصفحة -->
+                <footer class="bg-white border-t border-slate-200 py-4 px-6 text-center text-xs text-slate-500 no-print">
+                    <p>© 2026 ثانوية مستقبل نجران التعليمية - منصة الإدارة السحابية الآمنة v3.0. جميع الحقوق محفوظة.</p>
+                </footer>
+            `;
+        }
+
+        function setTab(tab) {
+            currentTab = tab;
+            render();
+        }
+
+        function toggleAdminMenu() {
+            const menu = document.getElementById('admin-dropdown-menu');
+            if (menu) {
+                menu.classList.toggle('hidden');
+            }
+        }
+
+        function toggleToolbarMode() {
+            toolbarDisplayMode = toolbarDisplayMode === 'both' ? 'icon-only' : 'both';
+            render();
+            showToast(toolbarDisplayMode === 'both' ? 'تم تفعيل العرض النصي والرمزي' : 'تم تفعيل وضع الرموز المصغرة بنجاح');
+        }
+
+        function toggleNotifications() {
+            showToast('لديك 3 إشعارات إدارية جديدة معلقة من إدارة التعليم بمنطقة نجران.');
+        }
+
+        function renderTabContent() {
+            switch(currentTab) {
+                case 'dashboard': return renderDashboard();
+                case 'students': return renderStudents();
+                case 'attendance': return renderAttendance();
+                case 'counseling': return renderCounseling();
+                case 'activity': return renderActivity();
+                case 'staff': return renderStaff();
+                case 'reports': return renderReports();
+                default: return renderDashboard();
+            }
+        }
+
+        // --- 1. لوحة المؤشرات (Dashboard) ---
+        function renderDashboard() {
+            return `
+                <div class="space-y-6">
+                    <div class="bg-gradient-to-r from-sky-800 to-blue-950 text-white p-6 rounded-3xl shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div>
+                            <span class="bg-sky-500/20 text-sky-200 px-3 py-1 rounded-full text-xs font-semibold">بوابة الإدارة المدرسية المعتمدة - ثانوية مستقبل نجران</span>
+                            <h2 class="text-2xl md:text-3xl font-extrabold mt-2">أهلاً بك، ${currentUser.name}</h2>
+                            <p class="text-sky-200 text-sm mt-1">نظام إدارة متكامل يغطي كافة الشؤون التعليمية، الطلابية، والنشاط المدرسي وفق أدوار RBAC.</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="bg-white/10 px-4 py-2.5 rounded-2xl border border-white/20 text-center">
+                                <span class="block text-[11px] text-sky-200">العام الدراسي 1447 هـ</span>
+                                <span class="font-bold text-sm">الفصل الدراسي الثالث</span>
+                            </div>
+                            <button onclick="triggerBackup()" class="bg-sky-500 hover:bg-sky-400 text-white px-4 py-3 rounded-2xl font-semibold text-sm shadow transition flex items-center gap-2">
+                                <i class="fa-solid fa-cloud-arrow-down"></i> نسخة احتياطية
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- المؤشرات الإحصائية الرئيسية -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                            <div>
+                                <p class="text-slate-500 text-xs font-semibold">إجمالي طلاب المدرسة</p>
+                                <h3 class="text-3xl font-black text-slate-800 mt-1">${students.length}</h3>
+                                <span class="text-emerald-600 text-xs font-bold mt-1 inline-flex items-center"><i class="fa-solid fa-check mr-1"></i> منتظمون بنسبة 98%</span>
+                            </div>
+                            <div class="w-12 h-12 rounded-2xl bg-sky-50 text-sky-700 flex items-center justify-center text-xl shadow-inner">
+                                <i class="fa-solid fa-user-graduate"></i>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                            <div>
+                                <p class="text-slate-500 text-xs font-semibold">برامج النشاط المدرسي</p>
+                                <h3 class="text-3xl font-black text-slate-800 mt-1">${activities.length}</h3>
+                                <span class="text-sky-600 text-xs font-bold mt-1 inline-flex items-center"><i class="fa-solid fa-calendar-check mr-1"></i> خطة نشط معتمدة</span>
+                            </div>
+                            <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-xl shadow-inner">
+                                <i class="fa-solid fa-award"></i>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                            <div>
+                                <p class="text-slate-500 text-xs font-semibold">جلسات الإرشاد الطلابي</p>
+                                <h3 class="text-3xl font-black text-slate-800 mt-1">${counselingSessions.length}</h3>
+                                <span class="text-amber-600 text-xs font-bold mt-1 inline-flex items-center"><i class="fa-solid fa-clock mr-1"></i> قيد المتابعة والتوثيق</span>
+                            </div>
+                            <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center text-xl shadow-inner">
+                                <i class="fa-solid fa-handshake-angle"></i>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                            <div>
+                                <p class="text-slate-500 text-xs font-semibold">الكادر التعليمي والإداري</p>
+                                <h3 class="text-3xl font-black text-slate-800 mt-1">${staff.length}</h3>
+                                <span class="text-blue-600 text-xs font-bold mt-1 inline-flex items-center"><i class="fa-solid fa-shield-halved mr-1"></i> صلاحيات مفعلة</span>
+                            </div>
+                            <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center text-xl shadow-inner">
+                                <i class="fa-solid fa-chalkboard-user"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- سجل التدقيق والاعتماد الرقمي -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="font-bold text-slate-800 text-lg">سجل التدقيق والعمليات الآمنة (Audit Log)</h3>
+                                <span class="text-xs text-slate-500 bg-slate-100 px-3 py-1 rounded-full">التحقق اللحظي</span>
+                            </div>
+                            <div class="divide-y divide-slate-100">
+                                ${auditLogs.map(log => `
+                                    <div class="py-3.5 flex items-center justify-between text-sm">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-8 h-8 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-xs font-bold">
+                                                <i class="fa-solid fa-fingerprint"></i>
+                                            </div>
+                                            <div>
+                                                <p class="font-semibold text-slate-800">${log.action}</p>
+                                                <span class="text-xs text-slate-400">المستخدم: ${log.user} | IP: ${log.ip}</span>
+                                            </div>
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md">${log.time}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <!-- التوقيع الرقمي للمستخدم -->
+                        <div class="bg-gradient-to-br from-sky-900 to-blue-950 text-white rounded-2xl shadow-sm p-6 flex flex-col justify-between">
+                            <div>
+                                <div class="flex justify-between items-start">
+                                    <h3 class="font-bold text-lg">ختم والتوقيع الرقمي المعتمد</h3>
+                                    <i class="fa-solid fa-signature text-sky-400 text-2xl"></i>
+                                </div>
+                                <p class="text-xs text-sky-200 mt-2">يعتمد هذا التوقيع تلقائيًا على كافة المستندات والتقارير والخطابات الرسمية الصادرة من حسابك.</p>
+                            </div>
+                            <div class="bg-white/10 border border-white/20 rounded-2xl p-4 my-6 text-center shadow-inner">
+                                <p class="font-serif italic text-2xl tracking-widest text-sky-200">${currentUser.signature}</p>
+                                <span class="block text-[10px] text-sky-300 mt-2 uppercase tracking-wider">ثانوية مستقبل نجران التعليمية - ختم رسمي</span>
+                            </div>
+                            <button onclick="showToast('تم تحديث التوقيع الرقمي بنجاح')" class="w-full bg-sky-600 hover:bg-sky-500 text-white py-2.5 rounded-xl font-semibold text-sm transition shadow">
+                                تعديل التوقيع الرقمي
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- 2. قاعدة بيانات الطلاب (Students) ---
+        function renderStudents() {
+            return `
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">قاعدة بيانات الطلاب وتسليم الكتب</h2>
+                            <p class="text-xs text-slate-500 mt-0.5">إدارة الملفات الشخصية، الصفوف، رفع الصور، واستيراد وتصدير بيانات CSV</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="openAddStudentModal()" class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow transition flex items-center gap-2">
+                                <i class="fa-solid fa-user-plus"></i> إضافة طالب جديد
+                            </button>
+                            <button onclick="importExportCSV('export')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2">
+                                <i class="fa-solid fa-file-excel text-emerald-600"></i> تصدير CSV
+                            </button>
+                            <button onclick="importExportCSV('import')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2">
+                                <i class="fa-solid fa-file-arrow-up text-sky-600"></i> استيراد ملف
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- جدول الطلاب -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="p-4 border-b border-slate-100 flex justify-between items-center">
+                            <div class="relative w-72">
+                                <input type="text" id="search-student" onkeyup="filterStudents()" placeholder="بحث باسم الطالب أو الرقم..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-sky-500">
+                                <i class="fa-solid fa-search absolute left-3 top-3 text-slate-400 text-sm"></i>
+                            </div>
+                            <span class="text-xs text-slate-500 font-semibold">إجمالي النتائج: <span id="student-count">${students.length}</span> طالب</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-right text-sm">
+                                <thead class="bg-slate-50 text-slate-600 font-bold text-xs uppercase tracking-wider">
+                                    <tr>
+                                        <th class="p-4">المعرف</th>
+                                        <th class="p-4">اسم الطالب الكامل</th>
+                                        <th class="p-4">الصف الدراسي</th>
+                                        <th class="p-4">رقم ولي الأمر</th>
+                                        <th class="p-4">تسليم الكتب الدراسية</th>
+                                        <th class="p-4">الحالة</th>
+                                        <th class="p-4 text-center">الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="students-table-body" class="divide-y divide-slate-100 text-slate-700">
+                                    ${students.map(s => `
+                                        <tr class="hover:bg-slate-50/80 transition">
+                                            <td class="p-4 font-mono text-xs font-bold text-sky-700">${s.id}</td>
+                                            <td class="p-4 font-bold text-slate-800 flex items-center gap-2">
+                                                <div class="w-8 h-8 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center font-bold text-xs">${s.name.charAt(0)}</div>
+                                                ${s.name}
+                                            </td>
+                                            <td class="p-4"><span class="bg-slate-100 px-2.5 py-1 rounded-md text-xs font-medium">${s.grade} - ${s.class}</span></td>
+                                            <td class="p-4 font-mono text-xs">${s.phone}</td>
+                                            <td class="p-4">
+                                                ${s.bookDelivered ? '<span class="text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full text-xs font-semibold"><i class="fa-solid fa-check mr-1"></i> تسليم كامل</span>' : '<span class="text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full text-xs font-semibold"><i class="fa-solid fa-clock mr-1"></i> بانتظار الاستلام</span>'}
+                                            </td>
+                                            <td class="p-4"><span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">${s.status}</span></td>
+                                            <td class="p-4 text-center space-x-1 space-x-reverse">
+                                                <button onclick="viewStudentCard('${s.id}')" title="بطاقة الطالب" class="p-2 text-sky-600 hover:bg-sky-50 rounded-lg transition"><i class="fa-solid fa-id-card"></i></button>
+                                                <button onclick="confirmSensitiveAction('حذف الطالب ${s.name}', () => deleteStudent('${s.id}'))" title="حذف" class="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition"><i class="fa-solid fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- 3. الحضور والغياب (Attendance) ---
+        function renderAttendance() {
+            return `
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">سجلات الحضور والغياب والتأخير اليومية</h2>
+                            <p class="text-xs text-slate-500 mt-0.5">تسجيل حضور الطلاب مع توقيع المعلم أو وكيل المدرسة المعتمد، وتوليد التقارير الفورية</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <input type="date" value="2026-06-07" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 font-semibold">
+                            <button onclick="showToast('تم حفظ كشف الحضور وتوثيق الاعتماد بنجاح')" class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow transition">
+                                <i class="fa-solid fa-floppy-disk mr-1"></i> حفظ وتوقيع الكشف
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                            <span class="font-bold text-slate-700 text-sm">كشف حضور صف: الأول الثانوي (1/أ)</span>
+                            <span class="text-xs text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full font-semibold">معتمد رسمياً بواسطة: ${currentUser.name} (${currentUser.title})</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-right text-sm">
+                                <thead class="bg-slate-50 text-slate-600 text-xs uppercase font-bold">
+                                    <tr>
+                                        <th class="p-4">اسم الطالب</th>
+                                        <th class="p-4 text-center">حاضر</th>
+                                        <th class="p-4 text-center">غائب</th>
+                                        <th class="p-4 text-center">متأخر</th>
+                                        <th class="p-4">ملاحظات توجيهية / أسباب</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    ${students.map((s, idx) => `
+                                        <tr>
+                                            <td class="p-4 font-bold text-slate-800">${s.name}</td>
+                                            <td class="p-4 text-center"><input type="radio" name="att_${idx}" ${s.attendance === 'حاضر' ? 'checked' : ''} class="w-4 h-4 text-emerald-600"></td>
+                                            <td class="p-4 text-center"><input type="radio" name="att_${idx}" ${s.attendance === 'غائب' ? 'checked' : ''} class="w-4 h-4 text-rose-600"></td>
+                                            <td class="p-4 text-center"><input type="radio" name="att_${idx}" ${s.attendance === 'متأخر' ? 'checked' : ''} class="w-4 h-4 text-amber-600"></td>
+                                            <td class="p-4"><input type="text" placeholder="سبب الغياب أو التأخير إن وجد..." class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs"></td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- 4. الملاحظات وجلسات الإرشاد (Counseling) ---
+        function renderCounseling() {
+            return `
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">سجل الملاحظات وجلسات الإرشاد الطلابي</h2>
+                            <p class="text-xs text-slate-500 mt-0.5">تتبع الملاحظات الفردية، جلسات التوجيه السلوكي، والتعهدات مع اعتماد الموجه الطلابي</p>
+                        </div>
+                        <button onclick="openAddSessionModal()" class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow transition flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i> إضافة جلسة إرشادية
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        ${counselingSessions.map(cs => `
+                            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col justify-between">
+                                <div>
+                                    <div class="flex justify-between items-start">
+                                        <span class="text-xs font-bold text-sky-700 bg-sky-50 px-3 py-1 rounded-full">${cs.date}</span>
+                                        <span class="text-xs px-2.5 py-1 rounded-full font-semibold ${cs.status === 'مغلقة' ? 'bg-slate-100 text-slate-600' : 'bg-amber-50 text-amber-700'}">${cs.status}</span>
+                                    </div>
+                                    <h3 class="font-bold text-lg text-slate-800 mt-3">${cs.studentName}</h3>
+                                    <p class="text-xs font-semibold text-slate-500 mt-0.5">نوع الحالة: ${cs.type}</p>
+                                    <div class="bg-slate-50 p-4 rounded-xl mt-4 border border-slate-100 text-xs text-slate-700 leading-relaxed">
+                                        <span class="font-bold text-slate-900 block mb-1">ملاحظات الموجه الطلابي السرية:</span>
+                                        ${cs.notes}
+                                    </div>
+                                </div>
+                                <div class="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center text-xs text-slate-500">
+                                    <span>الموجه المسؤول: <strong class="text-slate-700">${cs.counselor}</strong></span>
+                                    <button onclick="showToast('تم توثيق الجلسة باعتماد الموجه')" class="text-sky-600 font-semibold hover:underline">عرض التعهد الرسمي</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- 5. رائد النشاط والبرامج اللاصفية (Activity & Programs) ---
+        function renderActivity() {
+            return `
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">إدارة برامج النشاط الطلابي والخطط الزمنية</h2>
+                            <p class="text-xs text-slate-500 mt-0.5">صلاحيات رائد النشاط لتخطيط، توثيق، ومتابعة الفعاليات، المسابقات، والرحلات المدرسية بالتواريخ</p>
+                        </div>
+                        <button onclick="showToast('تم فتح معالج إضافة برنامج نشاط جديد')" class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow transition flex items-center gap-2">
+                            <i class="fa-solid fa-calendar-plus"></i> إضافة فعالية نشاط
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        ${activities.map(act => `
+                            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col justify-between">
+                                <div>
+                                    <div class="flex justify-between items-start">
+                                        <span class="text-xs font-bold text-sky-700 bg-sky-50 px-3 py-1 rounded-full"><i class="fa-regular fa-calendar mr-1"></i> ${act.date}</span>
+                                        <span class="text-xs font-semibold bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full">${act.status}</span>
+                                    </div>
+                                    <h3 class="font-bold text-lg text-slate-800 mt-3">${act.name}</h3>
+                                    <p class="text-xs text-slate-500 mt-1">المشرف المسؤول: <strong class="text-slate-700">${act.supervisor}</strong></p>
+                                    <div class="mt-4 flex items-center justify-between text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                        <span>الطلاب المشاركون:</span>
+                                        <span class="font-bold text-sky-800">${act.attendees} طالباً</span>
+                                    </div>
+                                </div>
+                                <div class="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center text-xs">
+                                    <button onclick="showToast('تم تصدير تقرير الفعالية')" class="text-sky-600 font-semibold hover:underline">تقرير الفعالية</button>
+                                    <button onclick="showToast('تم اعتماد تقرير النشاط')" class="bg-sky-50 text-sky-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-sky-100 transition">اعتِماد رائد النشاط</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- 6. إدارة الكادر والصلاحيات (Staff) ---
+        function renderStaff() {
+            return `
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">إدارة الكادر البشري والصلاحيات التفصيلية</h2>
+                            <p class="text-xs text-slate-500 mt-0.5">فتح حسابات وكيل المدرسة، الموجه الطلابي، رائد النشاط، والمعلمين وفق تصنيفات وزارة التعليم</p>
+                        </div>
+                        <button onclick="showToast('تم فتح معالج إضافة مستخدم جديد للنظام')" class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow transition flex items-center gap-2">
+                            <i class="fa-solid fa-user-gear"></i> إضافة حساب جديد
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-right text-sm">
+                                <thead class="bg-slate-50 text-slate-600 font-bold text-xs uppercase">
+                                    <tr>
+                                        <th class="p-4">المعرف</th>
+                                        <th class="p-4">الاسم الكامل</th>
+                                        <th class="p-4">المسمى الوظيفي والصلاحية</th>
+                                        <th class="p-4">التكليف الأساسي</th>
+                                        <th class="p-4">رقم التواصل</th>
+                                        <th class="p-4">الحالة</th>
+                                        <th class="p-4 text-center">الإداريات</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    ${staff.map(st => `
+                                        <tr class="hover:bg-slate-50">
+                                            <td class="p-4 font-mono text-xs font-bold text-sky-700">${st.id}</td>
+                                            <td class="p-4 font-bold text-slate-800">${st.name}</td>
+                                            <td class="p-4"><span class="bg-sky-50 text-sky-700 px-3 py-1 rounded-md text-xs font-semibold">${st.title}</span></td>
+                                            <td class="p-4 text-xs text-slate-600">${st.assignment}</td>
+                                            <td class="p-4 font-mono text-xs">${st.phone}</td>
+                                            <td class="p-4"><span class="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full text-xs font-semibold">${st.status}</span></td>
+                                            <td class="p-4 text-center space-x-1 space-x-reverse">
+                                                <button onclick="showToast('تم تعديل صلاحيات الحساب بنجاح')" class="p-2 text-sky-600 hover:bg-sky-50 rounded-lg" title="تعديل الصلاحيات"><i class="fa-solid fa-key"></i></button>
+                                                <button onclick="confirmSensitiveAction('إيقاف حساب المستخدم ${st.name}', () => showToast('تم إيقاف الحساب'))" class="p-2 text-rose-600 hover:bg-rose-50 rounded-lg" title="إيقاف"><i class="fa-solid fa-ban"></i></button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- 7. التقارير والكشوفات والاعتمادات (Reports) ---
+        function renderReports() {
+            return `
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4 no-print">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">مولد التقارير والكشوفات الرسمية المعتمدة</h2>
+                            <p class="text-xs text-slate-500 mt-0.5">تقارير شاملة عن الطلاب، لجان الامتحانات، تسليم الكتب، وبرامج رائد النشاط قابلة للطباعة والتصدير</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow transition flex items-center gap-2">
+                                <i class="fa-solid fa-print"></i> طباعة التقرير الاحترافي (A4)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- نموذج المستند الرسمي القابل للطباعة A4 -->
+                    <div id="printable-report" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 space-y-8">
+                        <!-- ترويسة الوزارة والمدرسة -->
+                        <div class="flex justify-between items-center border-b border-slate-200 pb-6">
+                            <div class="text-right">
+                                <h3 class="font-black text-xl text-slate-900">المملكة العربية السعودية</h3>
+                                <p class="text-xs font-semibold text-slate-600">وزارة التعليم - إدارة التعليم بمنطقة نجران</p>
+                                <p class="text-xs font-bold text-sky-800 mt-1">ثانوية مستقبل نجران التعليمية</p>
+                            </div>
+                            <div class="w-20 h-20 bg-sky-50 rounded-2xl flex items-center justify-center border border-sky-100 shadow-inner overflow-hidden">
+                                ${schoolLogoUrl ? `<img src="${schoolLogoUrl}" class="w-full h-full object-contain">` : '<i class="fa-solid fa-school text-3xl text-sky-800"></i>'}
+                            </div>
+                            <div class="text-left font-mono text-xs text-slate-500">
+                                <p>التاريخ: 2026/06/07</p>
+                                <p>الرقم المرجعي: NFES-REP-2026-V3</p>
+                                <p>حالة المستند: معتمد رسمياً</p>
+                            </div>
+                        </div>
+
+                        <!-- عنوان التقرير -->
+                        <div class="text-center space-y-1">
+                            <h2 class="text-2xl font-black text-slate-800 tracking-tight">التقرير الإحصائي الشامل وكشوف اللجان المعتمدة</h2>
+                            <p class="text-xs text-slate-500">يشمل كشوف الطلبة، لجان الامتحانات، وتكليفات الكادر التعليمي والإداري</p>
+                        </div>
+
+                        <!-- جدول لجان الامتحانات وتكليفات المعلمين -->
+                        <div class="space-y-3">
+                            <h4 class="font-bold text-slate-800 text-sm border-r-4 border-sky-600 pr-2">أولاً: لجان الامتحانات واللجان الإدارية</h4>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-right text-xs border border-slate-200">
+                                    <thead class="bg-slate-100 text-slate-700 font-bold uppercase">
+                                        <tr>
+                                            <th class="p-3 border">اسم اللجان والمهام</th>
+                                            <th class="p-3 border">رئيس اللجنة</th>
+                                            <th class="p-3 border">الأعضاء والمكلفون</th>
+                                            <th class="p-3 border">تاريخ الاعتماد</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${committees.map(c => `
+                                            <tr>
+                                                <td class="p-3 border font-bold">${c.name}</td>
+                                                <td class="p-3 border font-semibold text-sky-800">${c.head}</td>
+                                                <td class="p-3 border">${c.members}</td>
+                                                <td class="p-3 border font-mono">${c.date}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- جدول ملخص الطلاب وتسليم الكتب -->
+                        <div class="space-y-3">
+                            <h4 class="font-bold text-slate-800 text-sm border-r-4 border-sky-600 pr-2">ثانياً: ملخص حالة الطلاب وتسليم الكتب الدراسية</h4>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-right text-xs border border-slate-200">
+                                    <thead class="bg-slate-100 text-slate-700 font-bold uppercase">
+                                        <tr>
+                                            <th class="p-3 border">م</th>
+                                            <th class="p-3 border">اسم الطالب الكامل</th>
+                                            <th class="p-3 border">الصف</th>
+                                            <th class="p-3 border">حالة الانتظام</th>
+                                            <th class="p-3 border">حالة تسليم الكتب</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${students.map((s, idx) => `
+                                            <tr>
+                                                <td class="p-3 border font-mono">${idx + 1}</td>
+                                                <td class="p-3 border font-bold">${s.name}</td>
+                                                <td class="p-3 border">${s.grade} (${s.class})</td>
+                                                <td class="p-3 border text-emerald-700 font-semibold">${s.status}</td>
+                                                <td class="p-3 border font-semibold ${s.bookDelivered ? 'text-emerald-600' : 'text-amber-600'}">${s.bookDelivered ? 'تم التسليم كاملة' : 'بانتظار التسليم'}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- التوقيعات والأختام الرقمية المعتمدة -->
+                        <div class="grid grid-cols-4 gap-4 pt-12 border-t border-slate-200 text-center text-xs">
+                            <div>
+                                <p class="font-bold text-slate-700">رائد النشاط المدرسي</p>
+                                <div class="mt-6 font-serif italic text-sky-900 font-bold text-sm">بندر اليامي</div>
+                                <span class="block text-slate-400 mt-1">التوقيع والاعتماد</span>
+                            </div>
+                            <div>
+                                <p class="font-bold text-slate-700">الموجه الطلابي</p>
+                                <div class="mt-6 font-serif italic text-sky-900 font-bold text-sm">محمد الصيعري</div>
+                                <span class="block text-slate-400 mt-1">التوقيع والختم</span>
+                            </div>
+                            <div>
+                                <p class="font-bold text-slate-700">وكيل المدرسة</p>
+                                <div class="mt-6 font-serif italic text-sky-900 font-bold text-sm">صالح آل حيدر</div>
+                                <span class="block text-slate-400 mt-1">التوقيع والاعتماد</span>
+                            </div>
+                            <div>
+                                <p class="font-bold text-slate-700">مدير المدرسة</p>
+                                <div class="mt-6 font-serif italic text-sky-900 font-bold text-sm">${currentUser.signature}</div>
+                                <span class="block text-slate-400 mt-1">الختم الرسمي المعتمد</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- Modals & Advanced Features ---
+        function showToast(msg) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-xs font-bold flex items-center gap-3 animate-fade-in border border-slate-700';
+            toast.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400"></i><span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        function openLogoManagerModal() {
+            const modal = document.getElementById('modal-container');
+            const content = document.getElementById('modal-content');
+            
+            content.innerHTML = `
+                <div class="p-6 space-y-4">
+                    <div class="flex justify-between items-center border-b pb-3">
+                        <h3 class="font-bold text-lg text-slate-800">إدارة شعار ثانوية مستقبل نجران</h3>
+                        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                    </div>
+                    <p class="text-xs text-slate-500">قم برفع شعار المدرسة (SVG أو PNG) بجودة عالية لتحديثه فورياً في رأس الصفحة والـ Favicon والتقارير المطبوعة.</p>
+                    
+                    <div class="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:border-sky-500 transition cursor-pointer" onclick="document.getElementById('logo-file-input').click()">
+                        <i class="fa-solid fa-cloud-arrow-up text-3xl text-sky-600 mb-2"></i>
+                        <p class="text-xs font-bold text-slate-700">اسحب شعار المدرسة هنا أو اضغط للاختيار</p>
+                        <span class="text-[10px] text-slate-400 mt-1 block">يدعم صيغ SVG, PNG, JPG (بحد أقصى 2MB)</span>
+                        <input type="file" id="logo-file-input" class="hidden" accept=".svg,.png,.jpg" onchange="handleLogoUpload(event)">
+                    </div>
+
+                    <div class="flex justify-end gap-2 pt-2">
+                        <button onclick="closeModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold">إغلاق</button>
+                    </div>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            setTimeout(() => content.classList.remove('scale-95', 'opacity-0'), 10);
+        }
+
+        function handleLogoUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    schoolLogoUrl = e.target.result;
+                    closeModal();
+                    render();
+                    showToast('تم رفع وتحديث شعار ثانوية مستقبل نجران بنجاح في جميع أقسام المنصة');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function openAuditLogsModal() {
+            const modal = document.getElementById('modal-container');
+            const content = document.getElementById('modal-content');
+            
+            content.innerHTML = `
+                <div class="p-6 space-y-4">
+                    <div class="flex justify-between items-center border-b pb-3">
+                        <h3 class="font-bold text-lg text-slate-800">سجلات التدقيق والأمان (Audit Logs)</h3>
+                        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                    </div>
+                    <div class="space-y-2 max-h-80 overflow-y-auto text-xs">
+                        ${auditLogs.map(l => `
+                            <div class="p-3 bg-slate-50 border border-slate-100 rounded-xl flex justify-between items-center">
+                                <div>
+                                    <p class="font-bold text-slate-800">${l.action}</p>
+                                    <span class="text-[10px] text-slate-400">المستخدم: ${l.user} | IP: ${l.ip}</span>
+                                </div>
+                                <span class="font-mono bg-slate-200 text-slate-700 px-2 py-1 rounded">${l.time}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="flex justify-end pt-2">
+                        <button onclick="closeModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold">إغلاق</button>
+                    </div>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            setTimeout(() => content.classList.remove('scale-95', 'opacity-0'), 10);
+        }
+
+        function openResetPasswordModal() {
+            const modal = document.getElementById('modal-container');
+            const content = document.getElementById('modal-content');
+            
+            content.innerHTML = `
+                <div class="p-6 space-y-4">
+                    <div class="flex justify-between items-center border-b pb-3">
+                        <h3 class="font-bold text-lg text-slate-800">إعادة تعيين كلمة مرور المستخدمين</h3>
+                        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                    </div>
+                    <p class="text-xs text-slate-500">اختر المستخدم المراد إعادة تعيين كلمة المرور الخاصة به وتوليد كلمة مرور مؤقتة أمنية:</p>
+                    <div class="space-y-3">
+                        <select class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold">
+                            ${staff.map(st => `<option>${st.name} (${st.title})</option>`).join('')}
+                        </select>
+                        <button onclick="closeModal(); showToast('تم إرسال كلمة المرور المؤقتة ورابط إعادة التعيين بنجاح')" class="w-full bg-sky-600 hover:bg-sky-500 text-white py-2.5 rounded-xl text-xs font-bold transition">
+                            إعادة تعيين وتوليد كلمة المرور
+                        </button>
+                    </div>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            setTimeout(() => content.classList.remove('scale-95', 'opacity-0'), 10);
+        }
+
+        // نافذة تأكيد الإجراءات الحساسة
+        function confirmSensitiveAction(actionTitle, callback) {
+            const modal = document.getElementById('modal-container');
+            const content = document.getElementById('modal-content');
+            
+            content.innerHTML = `
+                <div class="p-6 text-center space-y-4">
+                    <div class="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto text-2xl shadow-inner">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <h3 class="font-bold text-lg text-slate-800">تأكيد الإجراء الحساس</h3>
+                    <p class="text-xs text-slate-600">هل أنت متأكد تماماً من رغبتك في تنفيذ إجراء (${actionTitle})؟ سيتم توثيق هذا الإجراء في سجل التدقيق الأمني.</p>
+                    <div class="flex gap-2 pt-2">
+                        <button onclick="closeModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl font-semibold text-xs">إلغاء</button>
+                        <button onclick="closeModal(); (${callback.toString()})();" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white py-2.5 rounded-xl font-semibold text-xs">تأكيد التنفيذ</button>
+                    </div>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            setTimeout(() => content.classList.remove('scale-95', 'opacity-0'), 10);
+        }
+
+        function switchRoleModal() {
+            const modal = document.getElementById('modal-container');
+            const content = document.getElementById('modal-content');
+            
+            content.innerHTML = `
+                <div class="p-6 space-y-4">
+                    <div class="flex justify-between items-center border-b pb-3">
+                        <h3 class="font-bold text-lg text-slate-800">تبديل الصلاحية والدور الوظيفي (RBAC)</h3>
+                        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                    </div>
+                    <div class="space-y-2">
+                        <button onclick="setUserRole('admin', 'د. خالد القحطاني', 'مدير المدرسة', 'د. خالد القحطاني')" class="w-full text-right p-3 rounded-xl hover:bg-sky-50 border border-slate-100 flex items-center justify-between transition">
+                            <div>
+                                <p class="font-bold text-slate-800 text-sm">مدير المدرسة</p>
+                                <span class="text-xs text-slate-500">تحكم كامل (CRUD) واعتمادات نهائية وسجلات تدقيق</span>
+                            </div>
+                            <i class="fa-solid fa-user-tie text-sky-600"></i>
+                        </button>
+                        <button onclick="setUserRole('vice', 'صالح آل حيدر', 'وكيل المدرسة', 'صالح آل حيدر')" class="w-full text-right p-3 rounded-xl hover:bg-sky-50 border border-slate-100 flex items-center justify-between transition">
+                            <div>
+                                <p class="font-bold text-slate-800 text-sm">وكيل المدرسة</p>
+                                <span class="text-xs text-slate-500">إدارة اللجان، الجداول، وحضور الطلاب</span>
+                            </div>
+                            <i class="fa-solid fa-user-shield text-sky-600"></i>
+                        </button>
+                        <button onclick="setUserRole('counselor', 'محمد الصيعري', 'الموجه الطلابي', 'محمد الصيعري')" class="w-full text-right p-3 rounded-xl hover:bg-sky-50 border border-slate-100 flex items-center justify-between transition">
+                            <div>
+                                <p class="font-bold text-slate-800 text-sm">الموجه الطلابي</p>
+                                <span class="text-xs text-slate-500">الإرشاد السلوكي ومتابعة التعهدات واستمارات التوعية</span>
+                            </div>
+                            <i class="fa-solid fa-handshake-angle text-sky-600"></i>
+                        </button>
+                        <button onclick="setUserRole('activity', 'بندر اليامي', 'رائد النشاط', 'بندر اليامي')" class="w-full text-right p-3 rounded-xl hover:bg-sky-50 border border-slate-100 flex items-center justify-between transition">
+                            <div>
+                                <p class="font-bold text-slate-800 text-sm">رائد النشاط</p>
+                                <span class="text-xs text-slate-500">الخطط والبرامج اللاصفية والرحلات</span>
+                            </div>
+                            <i class="fa-solid fa-puzzle-piece text-sky-600"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            setTimeout(() => content.classList.remove('scale-95', 'opacity-0'), 10);
+        }
+
+        function setUserRole(role, name, title, sig) {
+            currentUser = { id: 'USR-X', name, role, title, signature: sig };
+            closeModal();
+            render();
+            showToast(`تم التبديل بنجاح إلى صلاحية: ${title}`);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('modal-container');
+            const content = document.getElementById('modal-content');
+            content.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+        }
+
+        function triggerBackup() {
+            showToast('تم إنشاء النسخة الاحتياطية المشفرة لبيانات ثانوية مستقبل نجران بنجاح');
+        }
+
+        function importExportCSV(type) {
+            if (type === 'export') {
+                showToast('تم تصدير قاعدة بيانات الطلاب كملف CSV بنجاح');
+            } else {
+                showToast('تم فتح معالج استيراد بيانات الطلاب من ملفات Excel/CSV');
+            }
+        }
+
+        function deleteStudent(id) {
+            students = students.filter(s => s.id !== id);
+            render();
+            showToast('تم حذف سجل الطالب بنجاح وتحديث قاعدة البيانات');
+        }
+
+        function viewStudentCard(id) {
+            const student = students.find(s => s.id === id);
+            if (!student) return;
+            const modal = document.getElementById('modal-container');
+            const content = document.getElementById('modal-content');
+            
+            content.innerHTML = `
+                <div class="p-6 space-y-4">
+                    <div class="flex justify-between items-center border-b pb-3">
+                        <h3 class="font-bold text-lg text-slate-800">الملف التعريفي وبطاقة الطالب</h3>
+                        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                    </div>
+                    <div class="bg-sky-950 text-white p-6 rounded-2xl relative overflow-hidden shadow-inner">
+                        <h4 class="font-extrabold text-xl">${student.name}</h4>
+                        <p class="text-xs text-sky-300 mt-1">الرقم التعريفي: ${student.id} | الصف: ${student.grade} (${student.class})</p>
+                        <div class="mt-4 pt-4 border-t border-white/10 flex justify-between text-xs">
+                            <span>رقم ولي الأمر: ${student.phone}</span>
+                            <span class="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded">${student.status}</span>
+                        </div>
+                    </div>
+                    <button onclick="closeModal()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl font-semibold text-sm transition">
+                        إغلاق
+                    </button>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            setTimeout(() => content.classList.remove('scale-95', 'opacity-0'), 10);
+        }
+
+        function openAddStudentModal() {
+            showToast('نموذج إضافة طالب جديد وقبول بياناته جاهز للاستخدام');
+        }
+
+        function openAddSessionModal() {
+            showToast('نموذج تسجيل جلسة إرشادية جديدة وتعهد موثق جاهز للاستخدام');
+        }
+
+        function filterStudents() {
+            const query = document.getElementById('search-student').value.toLowerCase();
+            const rows = document.querySelectorAll('#students-table-body tr');
+            let count = 0;
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                if (text.includes(query)) {
+                    row.style.display = '';
+                    count++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            document.getElementById('student-count').innerText = count;
+        }
+
+        // بدء التشغيل
+        window.onload = function() {
+            render();
+        };
+    </script>
+</body>
+</html>
+
